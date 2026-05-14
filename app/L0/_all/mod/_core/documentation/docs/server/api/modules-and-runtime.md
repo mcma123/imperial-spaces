@@ -23,6 +23,7 @@ Important notes:
 
 - these are the public auth and health endpoints; hosted-share endpoints are the other anonymous family
 - password login flows through the shared auth challenge/proof service when `LOGIN_ALLOWED=true`, while guest-background flows may still use the guest-specific subset when `LOGIN_ALLOWED=false`
+- when the Convex auth bridge is configured, `login_challenge` reads the requested account's SCRAM verifier from Convex `spaceAuthUsers` before falling back to the local verifier file; `login` still issues the local Space Agent `space_session` cookie after proof verification
 - `login_challenge` also reports `userCrypto` bootstrap state; legacy accounts with no `meta/user_crypto.json` receive a one-time provisioning share so the browser can generate the missing wrapped record before final login, while accounts whose wrapped record no longer has any recoverable server share are reported as `invalidated`
 - `login` completes both the auth session and the `userCrypto` bootstrap: it may persist a missing `user_crypto.json` record before issuing the cookie, and successful responses return a backend `sessionId` plus the `userCrypto` payload needed to unlock the current browser session
 - `guest_create` creates a guest `L2` user whenever runtime config allows guest accounts, even when `LOGIN_ALLOWED=false`

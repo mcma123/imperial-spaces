@@ -117,6 +117,7 @@ Current server layout:
 - `server/lib/customware/git_history.js`: optional writable-layer local Git history scheduling, repository discovery, paginated commit listing, file-diff reads, operation previews, rollback, revert, and commit-loop suppression
 - `server/lib/customware/user_quota.js`: optional per-user `L2` folder size accounting and cached quota projection helpers for app-file mutations
 - `server/lib/auth/`: password verification, session service, user file helpers, user indexing, and user-management helpers
+- `server/lib/auth/convex_auth.js`: optional Convex credential-verifier bridge for deployments that want Convex to own password verifier records while this server still owns `space_session` cookies and local user-file permissions
 - `server/lib/file_watch/`: config-driven watchdog plus sharded `file_index` state and derived `group_index` and `user_index`, all keyed by logical `/app/...` project paths
 - `server/lib/share/`: backend-owned hosted-share archive storage, ZIP validation, authenticated import, and anonymous guest-clone helpers
 - `server/lib/tmp/`: `server/tmp/` lifecycle, stale-entry cleanup, and low-RAM ZIP archive creation for attachment-style downloads
@@ -137,6 +138,7 @@ Request routing order is:
 Core runtime contracts:
 
 - request identity is derived from the server-issued `space_session` cookie via router-side request context plus the auth service
+- credentials may be verified against Convex `spaceAuthUsers` when `CONVEX_URL` and `SPACE_CONVEX_AUTH_SECRET` are configured, but Convex verification is only the credential source; Space Agent still requires a local `L2/<username>/user.yaml` account and still issues the `space_session` cookie used by protected routes
 - the raw `space_session` cookie remains a browser bearer token, but `L2/<username>/meta/logins.json` stores only backend-keyed verifiers plus signed metadata, including a stable backend-generated `sessionId`, so reading app-side session files does not reveal a replayable cookie
 - when the current login is allowed to auto-restore `userCrypto` on the same browser profile, the browser keeps only one encrypted `localStorage` blob; the authenticated `user_crypto_session_key` endpoint derives the wrapping key from the current backend `sessionId` plus the server-held session secret, and the server never persists that wrapping key or the unwrapped user master key
 - password verifiers remain in `L2/<username>/meta/password.json`, but the SCRAM verifier is sealed with a backend-held key so the file is no longer self-sufficient
@@ -182,6 +184,7 @@ The server relies on a small set of shared infrastructure contracts. Do not re-i
 - `server/lib/customware/module_inheritance.js` and `server/lib/customware/extension_overrides.js` are the canonical module and extension resolution helpers
 - `server/lib/customware/module_manage.js` is the canonical module list, info, install, and remove helper
 - `server/lib/auth/service.js` is the canonical session and login service
+- `server/lib/auth/convex_auth.js` is the only server helper that should talk to Convex credential-verifier functions; API endpoints stay routed through `service.js`
 - `server/lib/auth/keys_manage.js` is the canonical backend auth-key loader, with shared-env override support and local `server/data/` or `SPACE_AUTH_DATA_DIR` fallback
 - `server/lib/utils/runtime_params.js` is the canonical parameter-resolution layer for startup env overrides, defaults, and frontend exposure
 - `server/server.js` owns the human-facing startup banner for direct serve launches and must print the shared Git-derived version without changing the separate listening-URL line that supervisor tooling parses

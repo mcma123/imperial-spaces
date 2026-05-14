@@ -57,6 +57,8 @@ Important behavior:
 - unsigned or expired session records are rejected
 - revocation deletes the stored session record and republishes the changed auth file through the shared mutation commit path
 - the auth service also exposes backend-owned trusted session issuance for server-controlled flows that already have authority to choose the target user, but public hosted-share opens now use the normal guest `login_challenge` plus `login` flow instead of that trusted-session shortcut
+- when `CONVEX_URL` and `SPACE_CONVEX_AUTH_SECRET` are configured, the login challenge can use Convex `spaceAuthUsers` as the credential-verifier source; the browser still completes the same challenge/proof flow and the server still issues the local `space_session` cookie
+- Convex-authenticated users still need a local `L2/<username>/user.yaml` user folder because Space Agent permissions, app files, and `userCrypto` state are local-layer contracts
 - in clustered runtime, cookie validation happens on workers from replicated auth index shards after the hinted user's auth-only state is loaded, one-time login challenges live in the primary-only `login_challenge` area of the unified state system, and any debounced writable-layer Git history scheduling for auth-file writes is triggered only from the primary post-rebuild path
 - full L2 file-index shards are loaded separately by file, module, extension, quota, and app-file serving routes; auth resolution must not scan the user's full tree
 
@@ -78,7 +80,7 @@ Important rules:
 
 ## Password Contract
 
-`password.json` stores a sealed SCRAM verifier envelope.
+`password.json` stores a sealed SCRAM verifier envelope. Convex-backed accounts store the same SCRAM verifier shape in Convex `spaceAuthUsers` instead of `password.json`, guarded by `SPACE_CONVEX_AUTH_SECRET`; this changes the verifier source, not the browser proof flow or the `space_session` contract.
 
 Important rules:
 

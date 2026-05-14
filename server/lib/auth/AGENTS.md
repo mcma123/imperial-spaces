@@ -13,6 +13,7 @@ Documentation is top priority for this subtree. After any change under `server/l
 Current files:
 
 - `service.js`: login challenge creation, login completion, backend-owned trusted session issuance for server-controlled auth flows, self-service password change, session-cookie helpers, session revocation, request-user resolution, and session-derived `userCrypto` localStorage-key derivation
+- `convex_auth.js`: optional Convex-backed credential-verifier bridge used when `CONVEX_URL` and `SPACE_CONVEX_AUTH_SECRET` are configured; it keeps Convex as the password-verifier source while `service.js` still owns Space Agent session-cookie issuance
 - `keys_manage.js`: backend-only auth-key loading from shared env injection or local fallback storage at `server/data/auth_keys.json` by default or `SPACE_AUTH_DATA_DIR/auth_keys.json` when that override is set
 - `passwords.js`: verifier and proof helpers
 - `user_crypto.js`: persistent wrapped user-key record helpers, backend-sealed server-share recovery, local backend-share cache storage, and invalidation
@@ -44,6 +45,8 @@ Current session rules:
 - the cookie is `HttpOnly`, `SameSite=Strict`, scoped to `/`, and carries a 30-day max age
 - in multi-user runtime the cookie value carries a username hint plus the bearer token so request auth can load only that user's auth files; token-only legacy cookie values are cleared because resolving them would require scanning all L2 users
 - login uses the shared challenge and proof flow from `service.js`
+- when `CONVEX_URL` and `SPACE_CONVEX_AUTH_SECRET` are configured, `service.js` first asks the Convex `spaceAuth:getLoginVerifier` query for the target username's SCRAM verifier and completes the same browser challenge/proof flow against that Convex-owned verifier; Convex-authenticated logins still require a matching local `L2/<username>/user.yaml` user folder because Space Agent permissions and user-owned files remain local-layer concepts
+- Convex-backed password users are stored in Convex `spaceAuthUsers`; the deployment must also have the same `SPACE_CONVEX_AUTH_SECRET` set so public clients cannot read or update verifier records directly
 - `login_challenge` returns the password-proof inputs plus `userCrypto` state; legacy users with no `meta/user_crypto.json` record receive a one-time provisioning share inside that challenge
 - accounts that still have a wrapped user key record but no recoverable server share are treated as `invalidated`, not `missing`, so the browser does not silently reprovision over old ciphertext
 - `login` finalization may persist the missing `meta/user_crypto.json` record before issuing the cookie, and successful logins return a backend `sessionId` plus a `userCrypto` payload for the browser session bootstrap
@@ -98,6 +101,7 @@ Rules:
 ## Development Guidance
 
 - keep auth state and session rules centralized here
+- keep Convex credential verification behind `convex_auth.js`; endpoint modules should not call Convex auth functions directly or issue cookies themselves
 - do not add direct cookie or session-file manipulation elsewhere when the auth service already owns the flow
 - do not hand-roll `password.json` contents outside backend helpers; use `password_generate`, `user_manage.js`, or auth-service helpers so the backend seal key is applied correctly
 - treat the current local file-backed auth model as a constrained infrastructure contract, not as a place to casually grow unrelated policy
