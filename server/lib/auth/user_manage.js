@@ -117,6 +117,49 @@ function createUser(projectRoot, username, password, options = {}) {
   return createUserInternal(projectRoot, username, password, options, loadAuthKeys(projectRoot));
 }
 
+function createUserProfile(projectRoot, username, options = {}) {
+  const normalizedUsername = normalizeUsername(username);
+
+  if (!normalizedUsername) {
+    throw new Error(`Invalid username: ${String(username || "")}`);
+  }
+
+  const runtimeParams = options.runtimeParams || null;
+  const userDir = buildUserAbsolutePath(projectRoot, normalizedUsername, "", runtimeParams);
+
+  if (fs.existsSync(userDir)) {
+    if (!options.force) {
+      throw new Error(`User already exists: ${normalizedUsername}`);
+    }
+
+    fs.rmSync(userDir, { force: true, recursive: true });
+  }
+
+  ensureUserStructure(projectRoot, normalizedUsername, runtimeParams);
+  writeUserConfig(projectRoot, normalizedUsername, {
+    full_name: normalizeFullName(options.fullName, normalizedUsername)
+  }, runtimeParams);
+  writeUserLogins(projectRoot, normalizedUsername, {}, runtimeParams);
+  recordAppPathMutations(
+    {
+      projectRoot,
+      runtimeParams
+    },
+    [
+      `/app/L2/${normalizedUsername}/`,
+      `/app/L2/${normalizedUsername}/meta/`,
+      `/app/L2/${normalizedUsername}/meta/logins.json`,
+      `/app/L2/${normalizedUsername}/mod/`,
+      `/app/L2/${normalizedUsername}/user.yaml`
+    ]
+  );
+
+  return {
+    userDir,
+    username: normalizedUsername
+  };
+}
+
 function isGuestUsername(username) {
   return normalizeUsername(username).startsWith(GUEST_USERNAME_PREFIX);
 }
@@ -256,6 +299,7 @@ function deleteGuestUser(projectRoot, username, options = {}) {
 export {
   createGuestUser,
   createUser,
+  createUserProfile,
   deleteGuestUser,
   deleteUser,
   isGuestUsername,

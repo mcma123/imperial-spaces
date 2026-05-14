@@ -66,6 +66,7 @@ Current public shell assets:
 
 - is public and must not depend on authenticated `/mod/...` assets
 - owns the login flow, guest creation flow, login-disabled fallback copy, and pre-auth layout
+- exposes a Convex-backed `Create account` action that posts the current username and password to `/api/signup`, then submits the normal login form after the account is created
 - declares the same shared product-level Open Graph and Twitter social-preview card as the other shells, so anonymous shares of `https://space-agent.ai/` still resolve to a Space Agent product preview after the server redirects crawlers to `/login`
 - renders a minimal centered footer below the main shell content that keeps only the injected `SPACE_PROJECT_VERSION` value
 - reads injected `meta[name="space-config"]` tags directly so guest-login UI and the password form can follow backend runtime parameters such as `ALLOW_GUEST_USERS` and `LOGIN_ALLOWED` without authenticated module imports

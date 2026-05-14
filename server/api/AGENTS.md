@@ -27,6 +27,7 @@ Public auth and health endpoints:
 
 - `health`
 - `guest_create`
+- `signup`
 - `login_challenge`
 - `login`
 - `login_check`
@@ -36,6 +37,7 @@ Current rules:
 - these are the password-login, guest-bootstrap, session-check, and health anonymous endpoints; hosted-share endpoints are the other explicit anonymous family
 - normal password login uses the shared auth service challenge and proof flow unless runtime config disables that entry path through `LOGIN_ALLOWED=false`
 - when the Convex auth bridge is configured through `CONVEX_URL` and `SPACE_CONVEX_AUTH_SECRET`, `login_challenge` can source the target user's verifier from the Convex `spaceAuthUsers` table before falling back to the local `meta/password.json` verifier; `login` still finalizes the same Space Agent session cookie so protected pages, modules, and app-file APIs keep one auth gate
+- `signup` is an anonymous Convex-backed account creation endpoint; it requires the same Convex bridge env on the Space Agent server, stores only a SCRAM verifier in Convex, creates the matching local `L2/<username>/user.yaml` profile, and does not store plaintext passwords
 - `login_challenge` also reports `userCrypto` bootstrap state; when a legacy account has no `meta/user_crypto.json`, the challenge includes a one-time provisioning share so the browser can generate the missing wrapped record before final login
 - `login_challenge`, `login`, and cookie validation load only the target user's auth state (`user.yaml`, `meta/password.json`, and `meta/logins.json`) on demand; endpoint code must not restore startup-time all-user scans or full user-tree scans to make auth visible
 - successful login sets the username-hinted `space_session` cookie through the auth service, writes the durable session verifier into `L2/<username>/meta/logins.json`, and returns a backend `sessionId` plus the `userCrypto` unlock payload for the authenticated browser session

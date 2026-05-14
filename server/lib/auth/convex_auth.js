@@ -14,6 +14,7 @@ import {
 } from "./passwords.js";
 
 const getLoginVerifierRef = makeFunctionReference("spaceAuth:getLoginVerifier");
+const createPasswordVerifierRef = makeFunctionReference("spaceAuth:createPasswordVerifier");
 const recordLoginRef = makeFunctionReference("spaceAuth:recordLogin");
 const upsertPasswordVerifierRef = makeFunctionReference("spaceAuth:upsertPasswordVerifier");
 
@@ -64,6 +65,14 @@ function createConvexAuthBridge(options = {}) {
     },
     async recordLogin(username) {
       return await client.mutation(recordLoginRef, {
+        adminSecret,
+        username
+      });
+    },
+    async createPasswordUser({ password, username }) {
+      return await client.mutation(createPasswordVerifierRef, {
+        ...createPublicPasswordVerifier(password),
+        active: true,
         adminSecret,
         username
       });

@@ -227,7 +227,7 @@ Handlers may return:
 
 Current endpoint families:
 
-- public auth and health: `health`, `guest_create`, `login_challenge`, `login`, `login_check`
+- public auth and health: `health`, `guest_create`, `signup`, `login_challenge`, `login`, `login_check`
 - hosted share and import: `cloud_share_create`, `cloud_share_info`, `cloud_share_download`, `cloud_share_clone`, `space_import`
 - app files: `file_list`, `file_paths`, `file_read`, `file_write`, `file_delete`, `file_copy`, `file_move`, `file_info`, `folder_download`
 - local history: `git_history_list`, `git_history_diff`, `git_history_preview`, `git_history_rollback`, `git_history_revert`

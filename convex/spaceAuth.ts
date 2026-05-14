@@ -129,3 +129,51 @@ export const upsertPasswordVerifier = mutation({
     };
   },
 });
+
+export const createPasswordVerifier = mutation({
+  args: {
+    active: v.optional(v.boolean()),
+    adminSecret: v.string(),
+    iterations: v.number(),
+    passwordScheme: v.literal("scram-sha-256"),
+    salt: v.string(),
+    serverKey: v.string(),
+    storedKey: v.string(),
+    username: v.string(),
+  },
+  handler: async (ctx, args) => {
+    requireAdminSecret(args.adminSecret);
+
+    const username = args.username.trim();
+    if (!username) {
+      throw new Error("Username is required.");
+    }
+
+    const existing = await ctx.db
+      .query("spaceAuthUsers")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .unique();
+
+    if (existing) {
+      throw new Error("User already exists.");
+    }
+
+    const now = Date.now();
+    const id = await ctx.db.insert("spaceAuthUsers", {
+      active: args.active ?? true,
+      createdAt: now,
+      iterations: args.iterations,
+      passwordScheme: args.passwordScheme,
+      salt: args.salt,
+      serverKey: args.serverKey,
+      storedKey: args.storedKey,
+      updatedAt: now,
+      username,
+    });
+
+    return {
+      id,
+      username,
+    };
+  },
+});

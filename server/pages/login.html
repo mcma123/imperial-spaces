@@ -978,6 +978,7 @@
             </span>
             </p>
             <button id="submit-button" class="secondary-button" type="submit">Enter your Space</button>
+            <button id="signup-button" class="primary-button" type="button">Create account</button>
           </form>
           <div id="guest-option-group">
             <div class="login-separator">or</div>
@@ -1116,6 +1117,7 @@
       const guestOptionGroup = document.getElementById("guest-option-group");
       const loginDisabledCopy = document.getElementById("login-disabled-copy");
       const submitButton = document.getElementById("submit-button");
+      const signupButton = document.getElementById("signup-button");
       const guestCreateButton = document.getElementById("guest-create-button");
       const introTitle = document.getElementById("intro-title");
       const introAstronaut = document.getElementById("intro-astronaut");
@@ -1179,6 +1181,7 @@
 
       function syncButtonState(isBusy = false) {
         submitButton.disabled = isBusy || !allowLogin || !passwordLoginSupported;
+        signupButton.disabled = isBusy || !allowLogin || !passwordLoginSupported;
         guestCreateButton.disabled = isBusy || !allowLogin || !allowGuestUsers || !passwordLoginSupported;
       }
 
@@ -1725,9 +1728,48 @@
         }
       }
 
+      async function handleSignup() {
+        try {
+          if (!allowLogin) {
+            throw new Error("Login is disabled in this system.");
+          }
+
+          if (!passwordLoginSupported) {
+            throw new Error(getUnsupportedPasswordLoginMessage());
+          }
+
+          const username = usernameInput.value.trim();
+          const password = passwordInput.value;
+
+          if (!username || !password) {
+            throw new Error("Username and password are required.");
+          }
+
+          setStatus("Creating account...");
+          syncButtonState(true);
+
+          await postJson("/api/signup", {
+            password,
+            username
+          });
+
+          setStatus("Account created. Signing in...", "ok");
+          syncButtonState(false);
+          form.requestSubmit();
+        } catch (error) {
+          logLoginError("Signup failed", error, {
+            username: usernameInput.value.trim()
+          });
+          syncButtonState(false);
+          setStatus(error.message || "Signup failed.", "error");
+          passwordInput.select();
+        }
+      }
+
       loginActions.hidden = !allowLogin;
       loginDisabledCopy.hidden = allowLogin;
       form.addEventListener("submit", handleLogin);
+      signupButton.addEventListener("click", handleSignup);
       if (allowGuestUsers) {
         guestCreateButton.addEventListener("click", handleGuestCreate);
       }
