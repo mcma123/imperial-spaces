@@ -135,7 +135,7 @@ function normalizeSessionId(value) {
 
 function normalizeUsername(value) {
   const normalized = String(value || "").trim();
-  return /^[A-Za-z0-9_.-]{1,200}$/u.test(normalized) ? normalized : "";
+  return /^[A-Za-z0-9_.@-]{1,200}$/u.test(normalized) ? normalized : "";
 }
 
 function requireLength(bytes, expectedLength, message) {

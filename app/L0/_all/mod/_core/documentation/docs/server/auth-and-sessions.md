@@ -75,6 +75,7 @@ Important rules:
 - accounts that still have a wrapped record but no recoverable server share are treated as `invalidated`, not `missing`, so login does not silently replace a key that may still protect existing ciphertext
 - `/api/login` persists the missing record before issuing the cookie, then returns the wrapped record plus the server share so the browser can unlock the master key for that authenticated browser session
 - the unlocked browser key is session-scoped; frontend code keeps it in `sessionStorage`, keyed by username plus backend `sessionId`, and may also keep one encrypted localStorage blob under `space.userCrypto.local`
+- browser `userCrypto` cache and bootstrap helpers must accept email-style usernames with `@`, matching the same username segment used by local `L2/<username>` storage
 - `/api/user_crypto_session_key` returns the current session-derived wrapping key by HMACing the live backend `sessionId` with the backend session secret, so the browser can encrypt or decrypt that one localStorage blob without storing the wrapping key at rest
 - admin or CLI password resets cannot rewrap the browser-owned key, so they invalidate `user_crypto.json` and delete the backend-only server share instead
 
