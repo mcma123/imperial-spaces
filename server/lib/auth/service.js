@@ -34,6 +34,7 @@ import {
   USER_CRYPTO_STATUS_READY
 } from "./user_crypto.js";
 import { LOGIN_CHALLENGE_AREA } from "../../runtime/state_areas.js";
+import { createConvexAuthBridge } from "./convex_auth.js";
 
 const SESSION_COOKIE_NAME = "space_session";
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -475,6 +476,7 @@ export function createAuthService(options = {}) {
 
   const projectRoot = String(options.projectRoot || "");
   const runtimeParams = options.runtimeParams || null;
+  const convexAuth = options.convexAuth === undefined ? createConvexAuthBridge() : options.convexAuth;
   const watchdog = options.watchdog || null;
   const challengeStore = createStateBackedLoginChallengeStore(stateSystem);
   const commitProjectPathChanges =
@@ -617,6 +619,115 @@ export function createAuthService(options = {}) {
     };
   }
 
+  function createLoginChallengePayload({ challengeToken, clientNonce, serverNonce, userCryptoState, verifier }) {
+    return {
+      challengeToken,
+      iterations: Number(verifier.iterations),
+      passwordScheme: verifier.scheme,
+      salt: verifier.salt,
+      serverNonce,
+      userCrypto: {
+        provisioningShare: userCryptoState.provisioningShare,
+        record: buildClientUserCryptoRecord(userCryptoState.record),
+        state: userCryptoState.status
+      }
+    };
+  }
+
+  function buildChallengeUserCryptoState(username) {
+    const userCryptoState = readCurrentUserCryptoState(username);
+
+    return {
+      provisioningShare:
+        userCryptoState?.status === "missing" ? createUserCryptoServerShare() : "",
+      record: userCryptoState?.record,
+      status: userCryptoState?.status || "missing"
+    };
+  }
+
+  function normalizeConvexVerifier(record) {
+    if (!record || typeof record !== "object" || Array.isArray(record)) {
+      return null;
+    }
+
+    const scheme = String(record.passwordScheme || record.scheme || "").trim().toLowerCase();
+    const salt = String(record.salt || "").trim();
+    const iterations = Number(record.iterations);
+    const storedKey = String(record.storedKey || "").trim();
+    const serverKey = String(record.serverKey || "").trim();
+
+    if (scheme !== "scram-sha-256" || !salt || !Number.isInteger(iterations) || iterations <= 0) {
+      return null;
+    }
+
+    if (!storedKey || !serverKey) {
+      return null;
+    }
+
+    return {
+      iterations,
+      salt,
+      scheme,
+      serverKey,
+      storedKey
+    };
+  }
+
+  async function maybeCreateConvexLoginChallenge({
+    challengeToken,
+    clientNonce,
+    normalizedUsername,
+    resolvedRequestInfo,
+    serverNonce
+  }) {
+    if (!convexAuth || typeof convexAuth.getLoginVerifier !== "function") {
+      return null;
+    }
+
+    const convexRecord = await convexAuth.getLoginVerifier(normalizedUsername);
+    const verifier = normalizeConvexVerifier(convexRecord);
+
+    if (!verifier) {
+      return null;
+    }
+
+    await ensureUserIndexLoaded(normalizedUsername, {
+      force: true,
+      normalizeAuthFiles: false
+    });
+
+    if (!getUserIndex().getUser(normalizedUsername)) {
+      throw new Error("Convex auth user has no local Space Agent user folder.");
+    }
+
+    const userCryptoState = buildChallengeUserCryptoState(normalizedUsername);
+
+    await challengeStore.storeLoginChallenge({
+      challengeToken,
+      clientNonce,
+      createdAtMs: Date.now(),
+      iterations: verifier.iterations,
+      salt: verifier.salt,
+      scheme: verifier.scheme,
+      serverNonce,
+      source: "convex",
+      serverKey: verifier.serverKey,
+      storedKey: verifier.storedKey,
+      userCryptoProvisioningShare: userCryptoState.provisioningShare,
+      userCryptoStatus: userCryptoState.status,
+      userAgent: resolvedRequestInfo.userAgent,
+      username: normalizedUsername
+    });
+
+    return createLoginChallengePayload({
+      challengeToken,
+      clientNonce,
+      serverNonce,
+      userCryptoState,
+      verifier
+    });
+  }
+
   function persistSessionForUser(username, options = {}) {
     const normalizedUsername = normalizeEntityId(username);
 
@@ -754,6 +865,23 @@ export function createAuthService(options = {}) {
 
     const normalizedUsername = normalizeEntityId(username);
     const normalizedClientNonce = normalizeNonce(clientNonce);
+    const serverNonce = createChallengeToken();
+    const challengeToken = createChallengeToken();
+
+    const convexChallenge = normalizedUsername && normalizedClientNonce
+      ? await maybeCreateConvexLoginChallenge({
+          challengeToken,
+          clientNonce: normalizedClientNonce,
+          normalizedUsername,
+          resolvedRequestInfo,
+          serverNonce
+        })
+      : null;
+
+    if (convexChallenge) {
+      return convexChallenge;
+    }
+
     await ensureUserIndexLoaded(normalizedUsername, {
       force: true
     });
@@ -763,41 +891,32 @@ export function createAuthService(options = {}) {
       normalizedUsername && normalizedClientNonce && userRecord?.hasPassword
         ? readCurrentPasswordVerifier(normalizedUsername)
         : null;
-    const userCryptoState = verifier ? readCurrentUserCryptoState(normalizedUsername) : null;
-    const userCryptoProvisioningShare =
-      userCryptoState?.status === "missing" ? createUserCryptoServerShare() : "";
+    const userCryptoState = verifier ? buildChallengeUserCryptoState(normalizedUsername) : null;
 
     if (!normalizedUsername || !normalizedClientNonce || !verifier) {
       throw new Error("Invalid username or password.");
     }
 
-    const serverNonce = createChallengeToken();
     const createdAtMs = Date.now();
-    const challengeToken = createChallengeToken();
 
     await challengeStore.storeLoginChallenge({
       challengeToken,
       clientNonce: normalizedClientNonce,
       createdAtMs,
       serverNonce,
-      userCryptoProvisioningShare,
-      userCryptoStatus: userCryptoState?.status || "missing",
+      source: "local",
+      userCryptoProvisioningShare: userCryptoState.provisioningShare,
+      userCryptoStatus: userCryptoState.status,
       userAgent: resolvedRequestInfo.userAgent,
       username: normalizedUsername
     });
 
-    return {
+    return createLoginChallengePayload({
       challengeToken,
-      iterations: Number(verifier.iterations),
-      passwordScheme: verifier.scheme,
-      salt: verifier.salt,
       serverNonce,
-      userCrypto: {
-        provisioningShare: userCryptoProvisioningShare,
-        record: buildClientUserCryptoRecord(userCryptoState?.record),
-        state: userCryptoState?.status || "missing"
-      }
-    };
+      userCryptoState,
+      verifier
+    });
   }
 
   async function completeLogin({ challengeToken, clientProof, req, requestInfo, userCryptoProvisioning }) {
@@ -819,9 +938,12 @@ export function createAuthService(options = {}) {
 
     await ensureUserIndexLoaded(challenge.username);
 
-    const verifier = getUserIndex().getUser(challenge.username)?.hasPassword
-      ? readCurrentPasswordVerifier(challenge.username)
-      : null;
+    const verifier =
+      challenge.source === "convex"
+        ? normalizeConvexVerifier(challenge)
+        : getUserIndex().getUser(challenge.username)?.hasPassword
+          ? readCurrentPasswordVerifier(challenge.username)
+          : null;
 
     if (!verifier) {
       throw new Error("Invalid username or password.");
@@ -842,6 +964,14 @@ export function createAuthService(options = {}) {
 
     if (!loginResult.ok) {
       throw new Error("Invalid username or password.");
+    }
+
+    if (
+      challenge.source === "convex" &&
+      convexAuth &&
+      typeof convexAuth.recordLogin === "function"
+    ) {
+      await convexAuth.recordLogin(challenge.username);
     }
 
     if (challenge.userCryptoStatus === "missing") {
