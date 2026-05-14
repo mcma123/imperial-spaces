@@ -67,7 +67,7 @@ Current public shell assets:
 - is public and must not depend on authenticated `/mod/...` assets
 - owns the login flow, guest creation flow, login-disabled fallback copy, and pre-auth layout
 - declares the same shared product-level Open Graph and Twitter social-preview card as the other shells, so anonymous shares of `https://space-agent.ai/` still resolve to a Space Agent product preview after the server redirects crawlers to `/login`
-- renders a centered footer below the main shell content with white semi-transparent outbound icons for GitHub, Discord, X, and a slightly larger Agent Zero logo in the last slot, then places the injected `SPACE_PROJECT_VERSION` value beneath that icon row
+- renders a minimal centered footer below the main shell content that keeps only the injected `SPACE_PROJECT_VERSION` value
 - reads injected `meta[name="space-config"]` tags directly so guest-login UI and the password form can follow backend runtime parameters such as `ALLOW_GUEST_USERS` and `LOGIN_ALLOWED` without authenticated module imports
 - declares the shared Space Agent transparent-helmet favicon set, including ICO fallback, PNG browser and install icons, Apple touch icon, and the `Login | Imperial Space` document title
 - runs the shared public-shell browser compatibility gate from `server/pages/res/browser-compat.js` before login logic starts, and renders a visible blocking message when the browser is missing required runtime features such as modern JavaScript syntax, module loading, fetch, storage, text codecs, or Web Crypto
@@ -79,13 +79,10 @@ Current public shell assets:
 - if that first authenticated recovery pass still leaves `userCrypto` missing, the authenticated bootstrap should sign the browser out instead of leaving the app running in a half-working state
 - if login completes without a usable `userCrypto` record, the shell must fail sign-in in place instead of redirecting into an authenticated-page logout loop
 - grants same-tab launcher access in `sessionStorage` after successful password sign-in so the tab that just authenticated can land on `/` while fresh tabs still route through `/enter`
-- when `LOGIN_ALLOWED=false`, keeps the floating public shell, product copy, self-host CTA, footer links, and version label visible but replaces the login form with a plain `Login is disabled in this system.` message and suppresses guest-account actions
+- when `LOGIN_ALLOWED=false`, keeps the floating public shell, product copy, and version label visible but replaces the login form with a plain `Login is disabled in this system.` message and suppresses guest-account actions
 - renders the guest-account removal warning with yellow warning treatment and a recovery-safe inline Google Material Symbols warning icon, without depending on authenticated icon fonts
-- keeps the self-host call-to-action visually separated from the sign-in form even when guest account creation is disabled and the guest-only block is hidden
 - keeps the left intro column minimal for this deployment-branded shell: the login page H1 reads `Imperial Space` and does not show the old three-line `Free and open-source AI agent ... Right in the browser.` support copy underneath
-- opens the self-host call-to-action as a two-panel login-styled modal: `Native App` and `Own Server` panels split left-right on desktop and stack top-bottom on mobile, with a privacy/security subtitle, one short explanatory line per panel, a large inline Material icon, and a local inline-icon action button
-- keeps the modal's outbound URLs as navigation only: the native app button links to the `agent0ai/space-agent` latest-release redirect, and the server-hosting button links to the README `#host` section
-- keeps the footer social links as navigation-only outbound targets to the Space Agent repository, Discord community, Agent Zero website, and X account
+- removes the self-host call-to-action button, its modal, and the public footer social-link row for this deployment-branded login shell
 - keeps the mobile shell scrollable when the viewport is shorter than the content, and reserves extra small-screen side spacing for the intro column rather than inflating the login card
 - keeps the mirrored canvas gradient and star or glow backdrop pinned to fixed viewport layers while the login shell content scrolls
 - keeps the public-shell glass shadowless: no painted box-shadow, text-shadow, or drop-shadow treatments on first-party shell chrome, astronaut art, or footer icons
